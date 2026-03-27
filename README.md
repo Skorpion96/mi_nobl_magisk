@@ -10,7 +10,7 @@ Made with Claude AI and a lot of fixing on my own
    parameters, used here to set `androidboot.selinux=permissive`
 
 2. **`miui.mqsas.IMQSNative` binder service** — MIUI/HyperOS service running
-   as root that accepts arbitrary shell command execution. Combined echo `runcon u:r:su:s0` > /proc/self/attr/cmdline
+   as root that accepts arbitrary shell command execution. Combined echo `runcon u:r:su:s0` > /proc/self/attr/current
    gives full root with correct SELinux context.
 
 ## Why Magisk instead of KernelSU
