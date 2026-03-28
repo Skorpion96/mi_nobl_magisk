@@ -387,7 +387,7 @@ else
 fi
 
 log "deploying su_grant.sh, use it to auth apps and shell..."
-# notes: seems you can't auth yourself, example com.android.shell can't get root but can ask root for other apps, anyway after other apps are granted you can auth in reverse, you can run the script on /sdcard sourcing it from a terminal app
+# notes: seems you can't auth com.android.shell, but you can ask root for other apps, you can run the script on /sdcard sourcing it from a terminal app to auth apps on the phone, auth first a terminal app to auth other apps with it
 cat > $(pwd)/su_grant.sh <<'OUTER'
 #!/bin/bash
 NC_PORT=1234
