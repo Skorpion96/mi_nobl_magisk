@@ -60,7 +60,7 @@ The setup stage if magisk has already been deployed previously will be skipped o
 
 ## Notes
 
-Seems modules work, just flash them, reboot and re-run the temp root. The device will soft boot and modules will be loaded. Also for some reason com.android.shell at least on my device fails to grant, it's a minor issue but we can stay without it using root, shizuku works instead.
+Seems modules work, just flash them, reboot and re-run the temp root. The device will soft boot and modules will be loaded. Also for some reason com.android.shell at least on my device fails to grant, it's a minor issue but we can stay without it using root, shizuku works instead. Another thing to know is that is not necessary to enable security settings of adb, just normal usb debug is enough, the script uses privileges of mqsas when adb can't do stuff.
 
 ## Porting to other devices
 
