@@ -1,6 +1,6 @@
 #!/bin/bash
 # magisk on locked bootloader via qcom fastboot cmdline injection + mqsas root, tested on miui/hyperos devices vulnerable to fastboot oem set-gpu-preemption + mqsas IMQSNative - made with claude AI and a lot of bugfixing
-# Credits - Magisk:https://github.com/topjohnwu/Magisk - Init mount namespace fix:https://github.com/polygraphene/DirtyPipe-Android/blob/master/startup-root
+# Credits - Magisk:https://github.com/topjohnwu/Magisk - Init mount namespace fix:https://github.com/polygraphene/DirtyPipe-Android/blob/master/startup-root - j4nn @ xda for the original Magisk-on-exploit concept (v20.4):https://github.com/j4nn
 
 DEVICE_TMP="/data/local/tmp"
 MAGISK_VER="30.7"
