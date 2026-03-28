@@ -419,4 +419,4 @@ adb shell "chmod 777 /data/local/tmp/su_grant.sh"
 rsh "sh /data/local/tmp/su_grant.sh"
 OUTER
 chmod +x $(pwd)/su_grant.sh
-log "process is now complete, you can now use root..."
+log "process complete, you can now use root..."
