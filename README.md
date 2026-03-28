@@ -73,3 +73,4 @@ Seems modules work, just flash them, reboot and re-run the temp root. The device
 - Original KernelSU locked-BL hack as inspiration:https://github.com/xunchahaha/mi_nobl_root
 - j4nn @ xda for the original Magisk-on-exploit concept (v20.4):https://github.com/j4nn
 - polygraphene dirtypipe startup-root script for the 'CANNOT LINK EXECUTABLE "/system/bin/app_process64": library "libnativeloader.so" not found' and boot classpath fixes:https://github.com/polygraphene/DirtyPipe-Android/blob/master/startup-root
+- Magisk by John Wu:https://github.com/topjohnwu/Magisk
