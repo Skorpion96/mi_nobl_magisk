@@ -58,6 +58,10 @@ The script will:
 Since this is a temp root you must re-run `host_magisk.sh` every reboot.
 The setup stage if magisk has already been deployed previously will be skipped on subsequent boots.
 
+## Notes
+
+Seems modules work, just flash them, reboot and re-run the temp root. The device will soft boot and modules will be loaded. Also for some reason com.android.shell at least on my device fails to grant, it's a minor issue but we can stay without it using root, shizuku works instead.
+
 ## Porting to other devices
 
 - If MQSas transactions don't respond, enumerate nearby transactions (20, 22, 23...)
