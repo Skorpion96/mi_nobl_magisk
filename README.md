@@ -6,7 +6,7 @@ Made with Claude AI and a lot of fixing on my own
 
 ## Vulnerabilities exploited
 
-1. **Qualcomm fastboot `oem set-gpu-preemption`** — allows injecting arbitrary kernel cmdline
+1. **Qualcomm fastboot `oem set-gpu-preemption`** and **`oem set-hw-fence-value`** — commands allowing inject of arbitrary kernel cmdline
    parameters, used here to set `androidboot.selinux=permissive`
 
 2. **`miui.mqsas.IMQSNative` binder service** — MIUI/HyperOS service running
@@ -22,7 +22,7 @@ Magisk is purely userspace — no kernel module, works on any kernel version.
 ## How it works
 
 ```
-fastboot oem set-gpu-preemption 0 androidboot.selinux=permissive
+fastboot oem set-gpu-preemption 0 androidboot.selinux=permissive or fastboot oem set-hw-fence-value 0 androidboot.selinux=permissive
   └─ kernel boots with SELinux permissive
       └─ service call miui.mqsas.IMQSNative 21 ... runcon u:r:su:s0
           └─ setup: deploy binaries to /data/adb/magisk/
