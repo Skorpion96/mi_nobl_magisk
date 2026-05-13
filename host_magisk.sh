@@ -117,8 +117,8 @@ gpupreemption
     adb shell "sleep 10"
     IP=$(adb shell ip addr show wlan0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 | tr -d '\r')
     if [ -z "$IP" ] || [ "$IP" = "127.0.0.1" ]; then
-    err "device not connected to wifi - connect to a wifi network and retry"
-    exit 1
+    read -p "device not connected to wifi - connect to a wifi network and press [Enter] to continue"
+    IP=$(adb shell ip addr show wlan0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 | tr -d '\r')
     fi
     log "device IP: $IP"
 
