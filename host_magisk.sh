@@ -113,14 +113,16 @@ fi
 gpupreemption
 
 # ── 4. check wifi and get device IP ──────────────────────────────────────────
-    log "checking wifi..."
-    adb shell "sleep 10"
+log "checking wifi..."
+adb shell "sleep 10"
+while true; do
     IP=$(adb shell ip addr show wlan0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 | tr -d '\r')
-    if [ -z "$IP" ] || [ "$IP" = "127.0.0.1" ]; then
-    read -p "device not connected to wifi - connect to a wifi network and press [Enter] to continue"
-    IP=$(adb shell ip addr show wlan0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d/ -f1 | tr -d '\r')
+    if [ -n "$IP" ] && [ "$IP" != "127.0.0.1" ]; then
+        break
     fi
-    log "device IP: $IP"
+    read -p "device not connected to wifi - connect to a network and press [Enter] to retry"
+done
+log "device IP: $IP"
 
     log "running root shell listener..."
     adb shell "/system/bin/service call miui.mqsas.IMQSNative 21 \
