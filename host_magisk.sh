@@ -33,6 +33,15 @@ else
 ARCH=32
 fi
 
+waitingadb(){
+    log "waiting for adb..."
+    adb wait-for-device
+    log "waiting for android boot..."
+    until adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; do sleep 1; done
+    log "waiting for /data..."
+    until adb shell '[ -d /data/data ]' 2>/dev/null; do sleep 1; done
+}
+
 # ── download magisk apk if not already present ────────────────────────────────
 if [ ! -f "$TMP_DIR/$MAGISK_APK" ]; then
     log "downloading $MAGISK_APK..."
@@ -46,22 +55,10 @@ else
     log "$MAGISK_APK already present, skipping download"
 fi
 
-# ── 1. wait for device ────────────────────────────────────────────────────────
+# ── 1. fastboot step if selinux is enforcing ──────────────────────────────────
 log "waiting for adb..."
 adb wait-for-device
 
-# ── 2. uninstall miui ota updates app ────────────────────────────────────────
-miuiupdateuni(){
-log "uninstalling miui ota updates app..."
-adb shell "pm uninstall --user 0 com.android.updater"
-}
-if [ "$(adb shell 'pm list packages | grep com.android.updater')" != package:com.android.updater ]; then
-log "miui ota updates app already uninstalled, skipping..."
-else
-miuiupdateuni
-fi
-
-# ── 3. fastboot step if selinux is enforcing ──────────────────────────────────
 selinuxcheckhwfence(){
     selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
     if [ "$selinux" = "permissive" ]; then
@@ -76,12 +73,7 @@ hwfencevalue(){
     until fastboot devices | grep -q fastboot; do sleep 1; done
     fastboot oem set-hw-fence-value 0 androidboot.selinux=permissive
     fastboot continue
-    log "waiting for adb..."
-    adb wait-for-device
-    log "waiting for android boot..."
-    until adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; do sleep 1; done
-    log "waiting for /data..."
-    until adb shell '[ -d /data/data ]' 2>/dev/null; do sleep 1; done
+    waitingadb
     selinuxcheckhwfence
         }
 selinuxcheckpreemption(){
@@ -94,25 +86,20 @@ selinuxcheckpreemption(){
     fi
 }
 gpupreemption(){
-selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
-if [ "$selinux" != "permissive" ]; then
+   selinux=$(adb shell getprop ro.boot.selinux | tr -d '\r')
+    if [ "$selinux" != "permissive" ]; then
     log "selinux is enforcing, trying first cmdline injection (set-gpu-preemption)..."
     adb reboot bootloader
     until fastboot devices | grep -q fastboot; do sleep 1; done
     fastboot oem set-gpu-preemption 0 androidboot.selinux=permissive
     fastboot continue
-    log "waiting for adb..."
-    adb wait-for-device
-    log "waiting for android boot..."
-    until adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; do sleep 1; done
-    log "waiting for /data..."
-    until adb shell '[ -d /data/data ]' 2>/dev/null; do sleep 1; done
+    waitingadb
     selinuxcheckpreemption
-fi
+    fi
 }
 gpupreemption
 
-# ── 4. check wifi and get device IP ──────────────────────────────────────────
+# ── 2. check wifi and get device IP ──────────────────────────────────────────
 log "checking wifi..."
 adb shell "sleep 10"
 while true; do
@@ -130,10 +117,27 @@ log "device IP: $IP"
         s16 'nc -s 0.0.0.0 -p $NC_PORT -L sh -l' \
         s16 '$DEVICE_TMP/listener.log' i32 600" &
     sleep 3
-    rsh "id" | grep -q "uid=0" || { err "root listener failed after reboot"; exit 1; }
+    rsh "id" | grep -q "uid=0" || { err "running root listener failed, your build might be patched or something went wrong, exiting"; exit 1; }
     log "root shell listener running"
 
-# ── 5. extract and push binaries ──────────────────────────────────────────────
+# ── 3. uninstall miui ota updates app ────────────────────────────────────────
+miuiupdateuni(){
+log "uninstalling miui ota updates app..."
+while true; do
+    rsh 'pm uninstall --user 0 com.android.updater'
+    if [ "$(adb shell 'pm list packages | grep com.android.updater')" != package:com.android.updater ]; then
+        break
+    fi
+    read -p "uninstall failed, press [Enter] to retry"
+done
+}
+    if [ "$(adb shell 'pm list packages | grep com.android.updater')" != package:com.android.updater ]; then
+    log "miui ota updates app already uninstalled, skipping..."
+    else
+    miuiupdateuni
+    fi
+
+# ── 4. extract and push binaries ──────────────────────────────────────────────
 log "pushing magisk binaries..."
 
 TMPDIR=$(mktemp -d)
@@ -172,7 +176,7 @@ adb push "$TMPDIR/assets/boot_patch.sh"     "$DEVICE_TMP/boot_patch.sh"
 adb push "$TMPDIR/assets/util_functions.sh"     "$DEVICE_TMP/util_functions.sh"
 adb push "$TMPDIR/assets/chromeos"             "$DEVICE_TMP/chromeos"
 
-# ── 6. write magisk_setup.sh onto device ─────────────────────────────────────
+# ── 5. write magisk_setup.sh onto device ─────────────────────────────────────
 log "writing magisk_setup.sh to device..."
 adb shell "cat > $DEVICE_TMP/magisk_setup.sh" << 'EOF'
 #!/system/bin/sh
@@ -220,7 +224,7 @@ ls -la "$MAGISKBIN/"
 echo "SETUP_DONE"
 EOF
 
-# ── 7. write magisk_start.sh onto device ─────────────────────────────────────
+# ── 6. write magisk_start.sh onto device ─────────────────────────────────────
 log "writing magisk_start.sh to device..."
 adb shell "cat > $DEVICE_TMP/magisk_start.sh" << 'EOF'
 #!/system/bin/sh
@@ -356,7 +360,7 @@ EOF
 
 rsh "chmod 755 $DEVICE_TMP/magisk_setup.sh $DEVICE_TMP/magisk_start.sh"
 
-# ── 8. push apk if manager not already installed ──────────────────────────────
+# ── 7. push apk if manager not already installed ──────────────────────────────
 if ! adb shell 'pm path com.topjohnwu.magisk' 2>/dev/null | grep -q package; then
     log "pushing magisk manager apk..."
     adb push "$TMP_DIR/$MAGISK_APK" "$DEVICE_TMP/magisk.apk"
@@ -365,7 +369,7 @@ else
 fi
 rm -f "$TMP_DIR/$MAGISK_APK"
 
-# ── 9. run setup ─────────────────────────────────────────────────────────────
+# ── 8. run setup ─────────────────────────────────────────────────────────────
 if adb shell "[ -f $DEVICE_TMP/magisk_setup.log ]" 2>/dev/null && \
    adb shell cat "$DEVICE_TMP/magisk_setup.log" 2>/dev/null | grep -q "SETUP_DONE"; then
     log "magisk already deployed, skipping setup"
@@ -383,7 +387,7 @@ else
     log "setup ok"
 fi
 
-# ── 10. start magisk daemon ────────────────────────────────────────────────────
+# ── 9. start magisk daemon ────────────────────────────────────────────────────
 log "starting magisk daemon..."
 rsh "sh $DEVICE_TMP/magisk_start.sh > $DEVICE_TMP/magisk_start.log 2>&1"
 sleep 3
@@ -391,7 +395,7 @@ rsh "chown shell:shell $DEVICE_TMP/*.log"
 log "start output:"
 adb shell cat "$DEVICE_TMP/magisk_start.log"
 
-# ── 11. verify daemon is running ──────────────────────────────────────────────
+# ── 10. verify daemon is running ──────────────────────────────────────────────
 MAGISKD=$(adb shell pidof magiskd 2>/dev/null | tr -d '\r')
 if [ -n "$MAGISKD" ]; then
     log "magiskd is running (pid $MAGISKD)"
@@ -399,7 +403,7 @@ else
     err "magiskd not found - check start log above"
 fi
 
-# ── 12. install magisk manager apk ───────────────────────────────────────────
+# ── 11. install magisk manager apk ───────────────────────────────────────────
 if adb shell "[ -f $DEVICE_TMP/magisk.apk ]" 2>/dev/null; then
     log "installing magisk manager..."
     rsh "pm install -r $DEVICE_TMP/magisk.apk > $DEVICE_TMP/manager_install.log 2>&1"
