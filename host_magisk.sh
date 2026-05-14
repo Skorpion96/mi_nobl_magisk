@@ -18,7 +18,7 @@ rsh() {
 }
 
 # ── dependency checks ─────────────────────────────────────────────────────────
-for cmd in wget adb fastboot unzip nc aarch64-linux-gnu-gcc arm-none-eabi-gcc; do
+for cmd in wget adb fastboot unzip nc; do
     if ! command -v "$cmd" &>/dev/null; then
         err "$cmd is not installed. Please install it to use this script."
         exit 1
